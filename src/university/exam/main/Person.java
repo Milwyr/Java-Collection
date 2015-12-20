@@ -42,6 +42,28 @@ public class Person {
 	}
 
 	/**
+	 * Constructor
+	 * 
+	 * @param id
+	 *            Identification of this person
+	 * @param firstName
+	 *            First name of this person
+	 * @param middleName
+	 *            Middle name of this person
+	 * @param lastName
+	 *            Last name of this person
+	 * @param emailAddress
+	 *            Email address of this person
+	 */
+	public Person(String id, String firstName, String middleName, String lastName, String emailAddress) {
+		this.id = id;
+		this.firstName = firstName;
+		this.lastName = lastName;
+		this.middleName = middleName;
+		this.emailAddress = emailAddress;
+	}
+
+	/**
 	 * This method returns the id of this person.
 	 * 
 	 * @return id of this person
@@ -99,42 +121,42 @@ public class Person {
 	}
 
 	/**
-	 * This method updates the first name of this person.
+	 * This method sets the first name of this person.
 	 * 
 	 * @param firstName
 	 *            A new first name
 	 */
-	protected void updateFirstName(String firstName) {
+	protected void setFirstName(String firstName) {
 		this.firstName = firstName;
 	}
 
 	/**
-	 * This method updates the middle name of this person.
+	 * This method sets the middle name of this person.
 	 * 
 	 * @param middleName
 	 *            A new middle name
 	 */
-	protected void updateMiddleName(String middleName) {
+	protected void setMiddleName(String middleName) {
 		this.middleName = middleName;
 	}
 
 	/**
-	 * This method updates the last name of this person.
+	 * This method sets the last name of this person.
 	 * 
 	 * @param firstName
 	 *            A new last name
 	 */
-	protected void updateLastName(String lastName) {
+	protected void setLastName(String lastName) {
 		this.lastName = lastName;
 	}
 
 	/**
-	 * This method updates the email address of this person.
+	 * This method sets the email address of this person.
 	 * 
 	 * @param emailAddress
 	 *            A new email address
 	 */
-	protected void updateEmailAddress(String emailAddress) {
+	protected void setEmailAddress(String emailAddress) {
 		this.emailAddress = emailAddress;
 	}
 }
