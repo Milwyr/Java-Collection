@@ -6,7 +6,9 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.security.SecureRandom;
+import java.util.ArrayList;
 import java.util.Base64;
+import java.util.List;
 
 import javax.crypto.Cipher;
 import javax.crypto.KeyGenerator;
@@ -19,10 +21,14 @@ public class Protect {
 	private static final String PASSWORDS_LIST = "passwords_list";
 	private static final String ENCRYPTED_PASSWORDS_LIST = "encrypted_passwords_list.txt";
 
+	private static List<Credential> credentials = new ArrayList<Credential>();
+
 	public static void main(String[] args) {
 		String mode = args[2];
 		String fileName = args[3];
 		String password = args[4];
+
+		initialisePlainTextCredentials();
 
 		if (mode.equals("-e")) {
 			try {
@@ -51,10 +57,11 @@ public class Protect {
 			String cipherText = null;
 
 			// Read secret key and iv
-			try (BufferedReader reader = new BufferedReader(new FileReader(CURRENT_DIRECTORY + ENCRYPTED_PASSWORDS_LIST))) {
+			try (BufferedReader reader = new BufferedReader(
+					new FileReader(CURRENT_DIRECTORY + ENCRYPTED_PASSWORDS_LIST))) {
 				// The first line is heading, which is ignored
 				reader.readLine();
-				
+
 				String line = reader.readLine();
 				String[] columns = line.split("\t");
 
@@ -87,6 +94,26 @@ public class Protect {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
+		}
+	}
+
+	/**
+	 * This method reads the plain text credentials from the passwords list text
+	 * file before it is deleted.
+	 */
+	private static void initialisePlainTextCredentials() {
+		try (BufferedReader reader = new BufferedReader(new FileReader(CURRENT_DIRECTORY + PASSWORDS_LIST))) {
+			reader.readLine(); // the first line is heading, which is ignored
+
+			String line = reader.readLine();
+			while (line != null) {
+				String[] columns = line.split("\t");
+				credentials.add(new Credential(columns[0], columns[1], columns[3]));
+				line = reader.readLine();
+			}
+		} catch (IOException e) {
+			// Do nothing if the file is not found, as it has been read before
+			// and has been deleted
 		}
 	}
 
