@@ -1,0 +1,3 @@
+This project provides an implementation of a bespoke map, which has a few specific methods, as represented by the PriceLadderMap interface.
+
+The gamble exchange system operates a 'best execution' policy. This means that should someone request a bet of £10 at 5.0 it has the possibility of being matched with any bet that is priced at 5.0 or over, with the best (highest) price being matched first. For example if a market had £50 at 5.0 and £5 at 7.0 available, the aforementioned bet (£10 / 5.0) would match with the £5 at 7.0 and also the £5 at 5.0. This would leave £45 at 5.0 available on the market. Bets do not necessarily have to match exactly with one single available bet on the market and actually can match with multiple available bets in order to fulfil the order.
