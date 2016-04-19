@@ -23,7 +23,6 @@ import javax.crypto.spec.SecretKeySpec;
 
 public class Protect {
 	private static final String CURRENT_DIRECTORY = System.getProperty("user.dir") + "\\src\\file\\protection\\Q1\\";
-	private static final String ENCRYPTED_PASSWORDS_LIST = "encrypted_passwords_list.txt";
 
 	private static List<Credential> credentials = new ArrayList<Credential>();
 
@@ -41,24 +40,27 @@ public class Protect {
 				if (isCorrectWritePassword(fileName, password)) {
 					try {
 						// Encrypt the plain text file
-						String plainText = readFile(CURRENT_DIRECTORY + fileName);
+						String plainText = readPlainTextFile(CURRENT_DIRECTORY + fileName);
 						CipherResult result = encrypt(password, plainText);
 
-						// Write the cipher text to a file with extension ".enc"
+						// Encrypt the file with extension ".enc"
 						try (PrintWriter writer = new PrintWriter(CURRENT_DIRECTORY + fileName + ".enc", "UTF-8")) {
+							// Write the cipher text to a file
 							writer.println(result.getCipherText());
 							writer.println();
-							String signature = sign(result.getSecretKey(), result.getCipherText());
-							writer.print(signature);
+							
+							// Write the AES key and initial vector to the text file
+							writer.println(fileName + "\t" + result.getSecretKeyString() + "\t" + result.getIv());
+							writer.println();
+							
+							// Write the signature to the text file
+							writer.print(sign(result.getSecretKey(), result.getCipherText()));
 						}
 
-						// Write the encrypted AES key to the text file
-						try (PrintWriter writer = new PrintWriter(CURRENT_DIRECTORY + ENCRYPTED_PASSWORDS_LIST,
-								"UTF-8")) {
-							writer.println("#file\t#secret key\t\t\t#initial vector");
-							writer.print(fileName + "\t" + result.getSecretKeyString() + "\t" + result.getIv());
-						}
-
+						File plainTextFile = new File(CURRENT_DIRECTORY + fileName);
+						if (plainTextFile.exists())
+							plainTextFile.delete();
+						
 						System.out.println("done");
 					} catch (Exception e) {
 						e.printStackTrace();
@@ -71,28 +73,22 @@ public class Protect {
 					String iv = null;
 					String secretKey = null;
 					String cipherText = null;
+					String signature = null;
 
-					// Read secret key and iv
-					try (BufferedReader reader = new BufferedReader(
-							new FileReader(CURRENT_DIRECTORY + ENCRYPTED_PASSWORDS_LIST))) {
-						// The first line is heading, which is ignored
-						reader.readLine();
-
-						String line = reader.readLine();
-						String[] columns = line.split("\t");
-
-						secretKey = columns[1];
-						iv = columns[2];
-					} catch (IOException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
-					}
-
-					// Read cipher text
 					try (BufferedReader reader = new BufferedReader(new FileReader(CURRENT_DIRECTORY + fileName))) {
+						// Read cipher text
 						cipherText = reader.readLine();
 						reader.readLine();
-						System.out.println("Signature: " + reader.readLine());
+						
+						// Read secret key and iv
+						String line = reader.readLine();
+						String[] columns = line.split("\t");
+						secretKey = columns[1];
+						iv = columns[2];
+						reader.readLine();
+						
+						// Read signature
+						signature = reader.readLine();
 					} catch (IOException e) {
 						// TODO Auto-generated catch block
 						e.printStackTrace();
@@ -139,7 +135,7 @@ public class Protect {
 	 * @throws IOException
 	 * @throws FileNotFoundException
 	 */
-	private static String readFile(String filePath) throws FileNotFoundException, IOException {
+	private static String readPlainTextFile(String filePath) throws FileNotFoundException, IOException {
 		StringBuilder builder = new StringBuilder();
 
 		try (BufferedReader reader = new BufferedReader(new FileReader(filePath))) {
