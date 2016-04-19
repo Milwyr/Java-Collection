@@ -6,20 +6,17 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.security.GeneralSecurityException;
-import java.security.InvalidAlgorithmParameterException;
-import java.security.InvalidKeyException;
 import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
+import java.util.Optional;
 
 import javax.crypto.Cipher;
 import javax.crypto.KeyGenerator;
 import javax.crypto.Mac;
 import javax.crypto.SecretKey;
-import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.IvParameterSpec;
-import javax.crypto.spec.PBEKeySpec;
 import javax.crypto.spec.SecretKeySpec;
 
 public class Protect {
@@ -36,73 +33,81 @@ public class Protect {
 		initialisePlainTextCredentials();
 
 		if (mode.equals("-e")) {
-			try {
-				// Encrypt the plain text file
-				String plainText = readFile(CURRENT_DIRECTORY + fileName);
-				CipherResult result = encrypt(password, plainText);
+			if (isCorrectWritePassword(fileName, password)) {
+				try {
+					// Encrypt the plain text file
+					String plainText = readFile(CURRENT_DIRECTORY + fileName);
+					CipherResult result = encrypt(password, plainText);
 
-				// Write the cipher text to a file with extension ".enc"
-				try (PrintWriter writer = new PrintWriter(CURRENT_DIRECTORY + fileName + ".enc", "UTF-8")) {
-					writer.println(result.getCipherText());
-					writer.println();
-					String signature = sign(result.getSecretKey(), result.getCipherText());
-					writer.print(signature);
+					// Write the cipher text to a file with extension ".enc"
+					try (PrintWriter writer = new PrintWriter(CURRENT_DIRECTORY + fileName + ".enc", "UTF-8")) {
+						writer.println(result.getCipherText());
+						writer.println();
+						String signature = sign(result.getSecretKey(), result.getCipherText());
+						writer.print(signature);
+					}
+
+					// Write the encrypted AES key to the text file
+					try (PrintWriter writer = new PrintWriter(CURRENT_DIRECTORY + ENCRYPTED_PASSWORDS_LIST, "UTF-8")) {
+						writer.println("#file\t#secret key\t\t\t#initial vector");
+						writer.print(fileName + "\t" + result.getSecretKeyString() + "\t" + result.getIv());
+					}
+
+					System.out.println("done");
+				} catch (Exception e) {
+					e.printStackTrace();
 				}
-
-				// Write the encrypted AES key to the text file
-				try (PrintWriter writer = new PrintWriter(CURRENT_DIRECTORY + ENCRYPTED_PASSWORDS_LIST, "UTF-8")) {
-					writer.println("#file\t#secret key\t\t\t#initial vector");
-					writer.print(fileName + "\t" + result.getSecretKeyString() + "\t" + result.getIv());
-				}
-
-				System.out.println("done");
-			} catch (Exception e) {
-				e.printStackTrace();
+			} else {
+				System.out.println("Invalid write password");
 			}
 		} else if (mode.equals("-d")) {
-			String iv = null;
-			String secretKey = null;
-			String cipherText = null;
+			if (isCorrectReadPassword(fileName, password)) {
+				String iv = null;
+				String secretKey = null;
+				String cipherText = null;
 
-			// Read secret key and iv
-			try (BufferedReader reader = new BufferedReader(
-					new FileReader(CURRENT_DIRECTORY + ENCRYPTED_PASSWORDS_LIST))) {
-				// The first line is heading, which is ignored
-				reader.readLine();
+				// Read secret key and iv
+				try (BufferedReader reader = new BufferedReader(
+						new FileReader(CURRENT_DIRECTORY + ENCRYPTED_PASSWORDS_LIST))) {
+					// The first line is heading, which is ignored
+					reader.readLine();
 
-				String line = reader.readLine();
-				String[] columns = line.split("\t");
+					String line = reader.readLine();
+					String[] columns = line.split("\t");
 
-				secretKey = columns[1];
-				iv = columns[2];
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
+					secretKey = columns[1];
+					iv = columns[2];
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
 
-			// Read cipher text
-			try (BufferedReader reader = new BufferedReader(new FileReader(CURRENT_DIRECTORY + fileName))) {
-				cipherText = reader.readLine();
-				reader.readLine();
-				System.out.println("Signature: " + reader.readLine());
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
+				// Read cipher text
+				try (BufferedReader reader = new BufferedReader(new FileReader(CURRENT_DIRECTORY + fileName))) {
+					cipherText = reader.readLine();
+					reader.readLine();
+					System.out.println("Signature: " + reader.readLine());
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
 
-			// Remove extension .enc
-			String outputFileName = fileName.substring(0, fileName.length() - 4);
+				// Remove extension .enc
+				String outputFileName = fileName.substring(0, fileName.length() - 4);
 
-			// Decrypt the cipher text and output it to a text file
-			try (PrintWriter writer = new PrintWriter(CURRENT_DIRECTORY + outputFileName, "UTF-8")) {
-				String recoveredText = decrypt(secretKey, iv, password, cipherText);
+				// Decrypt the cipher text and output it to a text file
+				try (PrintWriter writer = new PrintWriter(CURRENT_DIRECTORY + outputFileName, "UTF-8")) {
+					String recoveredText = decrypt(secretKey, iv, password, cipherText);
 
-				writer.print(recoveredText);
+					writer.print(recoveredText);
 
-				System.out.println("done");
-			} catch (Exception e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
+					System.out.println("done");
+				} catch (Exception e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			} else {
+				System.out.println("Invalid read password");
 			}
 		}
 	}
@@ -179,7 +184,7 @@ public class Protect {
 		byte[] iv = cipher.getParameters().getParameterSpec(IvParameterSpec.class).getIV();
 		cipher.init(Cipher.ENCRYPT_MODE, secretKey, new IvParameterSpec(iv));
 		byte[] cipherTextBytes = cipher.doFinal(plainTextBytes);
-		
+
 		return new CipherResult(secretKey, iv, cipherTextBytes);
 	}
 
@@ -237,5 +242,30 @@ public class Protect {
 		byte[] result = mac.doFinal(cipherText.getBytes());
 
 		return Base64.getEncoder().encodeToString(result);
+	}
+
+	private static boolean isCorrectWritePassword(String fileName, String password) {
+		Optional<Credential> credential = credentials.stream().filter(x -> x.getFileName().equals(fileName))
+				.findFirst();
+
+		if (credential.isPresent()) {
+			return credential.get().getWritePassword().equals(password);
+		}
+
+		return false;
+	}
+
+	private static boolean isCorrectReadPassword(String fileName, String password) {
+		// Remove the .enc extension
+		String actualFileName = fileName.substring(0, fileName.length() - 4);
+
+		Optional<Credential> credential = credentials.stream().filter(x -> x.getFileName().equals(actualFileName))
+				.findFirst();
+
+		if (credential.isPresent()) {
+			return credential.get().getReadPassword().equals(password);
+		}
+
+		return false;
 	}
 }
