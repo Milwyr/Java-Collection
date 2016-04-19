@@ -6,6 +6,8 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.security.GeneralSecurityException;
+import java.security.InvalidAlgorithmParameterException;
+import java.security.InvalidKeyException;
 import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.Base64;
@@ -15,12 +17,13 @@ import javax.crypto.Cipher;
 import javax.crypto.KeyGenerator;
 import javax.crypto.Mac;
 import javax.crypto.SecretKey;
+import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.IvParameterSpec;
+import javax.crypto.spec.PBEKeySpec;
 import javax.crypto.spec.SecretKeySpec;
 
 public class Protect {
 	private static final String CURRENT_DIRECTORY = System.getProperty("user.dir") + "\\src\\file\\protection\\Q1\\";
-	private static final String PASSWORDS_LIST = "passwords_list";
 	private static final String ENCRYPTED_PASSWORDS_LIST = "encrypted_passwords_list.txt";
 
 	private static List<Credential> credentials = new ArrayList<Credential>();
@@ -109,19 +112,10 @@ public class Protect {
 	 * file before it is deleted.
 	 */
 	private static void initialisePlainTextCredentials() {
-		try (BufferedReader reader = new BufferedReader(new FileReader(CURRENT_DIRECTORY + PASSWORDS_LIST))) {
-			reader.readLine(); // the first line is heading, which is ignored
-
-			String line = reader.readLine();
-			while (line != null) {
-				String[] columns = line.split("\t");
-				credentials.add(new Credential(columns[0], columns[1], columns[3]));
-				line = reader.readLine();
-			}
-		} catch (IOException e) {
-			// Do nothing if the file is not found, as it has been read before
-			// and has been deleted
-		}
+		credentials.add(new Credential("BS13", "UCL", "Usability"));
+		credentials.add(new Credential("FCR", "Rule1", "Rule2"));
+		credentials.add(new Credential("SVS", "NotASpy", "RealltyNotASpy"));
+		credentials.add(new Credential("TA", "Alan", "AlonzoChurch"));
 	}
 
 	/**
@@ -180,11 +174,12 @@ public class Protect {
 		keyGenerator.init(new SecureRandom());
 		SecretKey secretKey = keyGenerator.generateKey();
 
+		// Encrypt the plain text
 		Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
 		byte[] iv = cipher.getParameters().getParameterSpec(IvParameterSpec.class).getIV();
 		cipher.init(Cipher.ENCRYPT_MODE, secretKey, new IvParameterSpec(iv));
 		byte[] cipherTextBytes = cipher.doFinal(plainTextBytes);
-
+		
 		return new CipherResult(secretKey, iv, cipherTextBytes);
 	}
 
