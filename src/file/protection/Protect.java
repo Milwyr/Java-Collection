@@ -1,6 +1,7 @@
 package file.protection;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
@@ -11,6 +12,7 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import javax.crypto.Cipher;
 import javax.crypto.KeyGenerator;
@@ -27,87 +29,92 @@ public class Protect {
 
 	public static void main(String[] args) {
 		String mode = args[2];
-		String fileName = args[3];
-		String password = args[4];
-
 		initialisePlainTextCredentials();
 
-		if (mode.equals("-e")) {
-			if (isCorrectWritePassword(fileName, password)) {
-				try {
-					// Encrypt the plain text file
-					String plainText = readFile(CURRENT_DIRECTORY + fileName);
-					CipherResult result = encrypt(password, plainText);
+		if (mode.equals("-c")) {
+			check();
+		} else {
+			String fileName = args[3];
+			String password = args[4];
 
-					// Write the cipher text to a file with extension ".enc"
-					try (PrintWriter writer = new PrintWriter(CURRENT_DIRECTORY + fileName + ".enc", "UTF-8")) {
-						writer.println(result.getCipherText());
-						writer.println();
-						String signature = sign(result.getSecretKey(), result.getCipherText());
-						writer.print(signature);
+			if (mode.equals("-e")) {
+				if (isCorrectWritePassword(fileName, password)) {
+					try {
+						// Encrypt the plain text file
+						String plainText = readFile(CURRENT_DIRECTORY + fileName);
+						CipherResult result = encrypt(password, plainText);
+
+						// Write the cipher text to a file with extension ".enc"
+						try (PrintWriter writer = new PrintWriter(CURRENT_DIRECTORY + fileName + ".enc", "UTF-8")) {
+							writer.println(result.getCipherText());
+							writer.println();
+							String signature = sign(result.getSecretKey(), result.getCipherText());
+							writer.print(signature);
+						}
+
+						// Write the encrypted AES key to the text file
+						try (PrintWriter writer = new PrintWriter(CURRENT_DIRECTORY + ENCRYPTED_PASSWORDS_LIST,
+								"UTF-8")) {
+							writer.println("#file\t#secret key\t\t\t#initial vector");
+							writer.print(fileName + "\t" + result.getSecretKeyString() + "\t" + result.getIv());
+						}
+
+						System.out.println("done");
+					} catch (Exception e) {
+						e.printStackTrace();
+					}
+				} else {
+					System.out.println("Invalid write password");
+				}
+			} else if (mode.equals("-d")) {
+				if (isCorrectReadPassword(fileName, password)) {
+					String iv = null;
+					String secretKey = null;
+					String cipherText = null;
+
+					// Read secret key and iv
+					try (BufferedReader reader = new BufferedReader(
+							new FileReader(CURRENT_DIRECTORY + ENCRYPTED_PASSWORDS_LIST))) {
+						// The first line is heading, which is ignored
+						reader.readLine();
+
+						String line = reader.readLine();
+						String[] columns = line.split("\t");
+
+						secretKey = columns[1];
+						iv = columns[2];
+					} catch (IOException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
 					}
 
-					// Write the encrypted AES key to the text file
-					try (PrintWriter writer = new PrintWriter(CURRENT_DIRECTORY + ENCRYPTED_PASSWORDS_LIST, "UTF-8")) {
-						writer.println("#file\t#secret key\t\t\t#initial vector");
-						writer.print(fileName + "\t" + result.getSecretKeyString() + "\t" + result.getIv());
+					// Read cipher text
+					try (BufferedReader reader = new BufferedReader(new FileReader(CURRENT_DIRECTORY + fileName))) {
+						cipherText = reader.readLine();
+						reader.readLine();
+						System.out.println("Signature: " + reader.readLine());
+					} catch (IOException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
 					}
 
-					System.out.println("done");
-				} catch (Exception e) {
-					e.printStackTrace();
+					// Remove extension .enc
+					String outputFileName = fileName.substring(0, fileName.length() - 4);
+
+					// Decrypt the cipher text and output it to a text file
+					try (PrintWriter writer = new PrintWriter(CURRENT_DIRECTORY + outputFileName, "UTF-8")) {
+						String recoveredText = decrypt(secretKey, iv, password, cipherText);
+
+						writer.print(recoveredText);
+
+						System.out.println("done");
+					} catch (Exception e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
+				} else {
+					System.out.println("Invalid read password");
 				}
-			} else {
-				System.out.println("Invalid write password");
-			}
-		} else if (mode.equals("-d")) {
-			if (isCorrectReadPassword(fileName, password)) {
-				String iv = null;
-				String secretKey = null;
-				String cipherText = null;
-
-				// Read secret key and iv
-				try (BufferedReader reader = new BufferedReader(
-						new FileReader(CURRENT_DIRECTORY + ENCRYPTED_PASSWORDS_LIST))) {
-					// The first line is heading, which is ignored
-					reader.readLine();
-
-					String line = reader.readLine();
-					String[] columns = line.split("\t");
-
-					secretKey = columns[1];
-					iv = columns[2];
-				} catch (IOException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
-
-				// Read cipher text
-				try (BufferedReader reader = new BufferedReader(new FileReader(CURRENT_DIRECTORY + fileName))) {
-					cipherText = reader.readLine();
-					reader.readLine();
-					System.out.println("Signature: " + reader.readLine());
-				} catch (IOException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
-
-				// Remove extension .enc
-				String outputFileName = fileName.substring(0, fileName.length() - 4);
-
-				// Decrypt the cipher text and output it to a text file
-				try (PrintWriter writer = new PrintWriter(CURRENT_DIRECTORY + outputFileName, "UTF-8")) {
-					String recoveredText = decrypt(secretKey, iv, password, cipherText);
-
-					writer.print(recoveredText);
-
-					System.out.println("done");
-				} catch (Exception e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
-			} else {
-				System.out.println("Invalid read password");
 			}
 		}
 	}
@@ -234,6 +241,47 @@ public class Protect {
 		cipher.init(Cipher.DECRYPT_MODE, secretKey, new IvParameterSpec(ivBytes));
 
 		return cipher.doFinal(encryptedTextBytes);
+	}
+
+	private static void check() {
+		List<String> originalFileNames = credentials.stream().map(x -> x.getFileName()).collect(Collectors.toList());
+
+		List<String> fileNames = new ArrayList<String>();
+
+		// Remove the file separator '\\' at last
+		File directory = new File(CURRENT_DIRECTORY.substring(0, CURRENT_DIRECTORY.length() - 1));
+		File[] files = directory.listFiles();
+
+		for (File file : files) {
+			boolean isDeleted = false;
+
+			// All encrypted files should end with ".enc", i.e. length >= 4
+			if (file.getName().length() < 4) {
+				isDeleted = file.delete();
+			}
+			
+			if (!isDeleted) {
+				// Remove the .enc extension
+				String actualFileName = file.getName().substring(0, file.getName().length() - 4);
+
+				// Delete the file if it is not encrypted or in the original
+				// folder
+				if (!file.getName().endsWith(".enc") || !originalFileNames.contains(actualFileName)) {
+					isDeleted = file.delete();
+				}
+
+				if (!isDeleted) {
+					fileNames.add(actualFileName);
+				}
+			}
+		}
+
+		// List all the missing files
+		for (String originalFileName : originalFileNames) {
+			if (!fileNames.contains(originalFileName)) {
+				System.out.println(originalFileName + " is missing.");
+			}
+		}
 	}
 
 	private static String sign(SecretKey secretKey, String cipherText) throws GeneralSecurityException {
