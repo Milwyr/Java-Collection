@@ -103,6 +103,11 @@ public class Protect {
 
 						writer.print(recoveredText);
 
+						File encryptedTextFile = new File(CURRENT_DIRECTORY + fileName);
+						if (encryptedTextFile.exists()) {
+							encryptedTextFile.delete();
+						}
+						
 						System.out.println("done");
 					} catch (Exception e) {
 						// TODO Auto-generated catch block
