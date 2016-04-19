@@ -15,7 +15,11 @@ public class CipherResult {
 		this.cipherText = cipherText;
 	}
 
-	public String getSecretKey() {
+	public SecretKey getSecretKey() {
+		return this.secretKey;
+	}
+	
+	public String getSecretKeyString() {
 		return Base64.getEncoder().encodeToString(this.secretKey.getEncoded());
 	}
 

@@ -5,6 +5,7 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.security.GeneralSecurityException;
 import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.Base64;
@@ -12,6 +13,7 @@ import java.util.List;
 
 import javax.crypto.Cipher;
 import javax.crypto.KeyGenerator;
+import javax.crypto.Mac;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
@@ -38,13 +40,16 @@ public class Protect {
 
 				// Write the cipher text to a file with extension ".enc"
 				try (PrintWriter writer = new PrintWriter(CURRENT_DIRECTORY + fileName + ".enc", "UTF-8")) {
-					writer.write(result.getCipherText());
+					writer.println(result.getCipherText());
+					writer.println();
+					String signature = sign(result.getSecretKey(), result.getCipherText());
+					writer.print(signature);
 				}
 
 				// Write the encrypted AES key to the text file
 				try (PrintWriter writer = new PrintWriter(CURRENT_DIRECTORY + ENCRYPTED_PASSWORDS_LIST, "UTF-8")) {
 					writer.println("#file\t#secret key\t\t\t#initial vector");
-					writer.print(fileName + "\t" + result.getSecretKey() + "\t" + result.getIv());
+					writer.print(fileName + "\t" + result.getSecretKeyString() + "\t" + result.getIv());
 				}
 
 				System.out.println("done");
@@ -75,6 +80,8 @@ public class Protect {
 			// Read cipher text
 			try (BufferedReader reader = new BufferedReader(new FileReader(CURRENT_DIRECTORY + fileName))) {
 				cipherText = reader.readLine();
+				reader.readLine();
+				System.out.println("Signature: " + reader.readLine());
 			} catch (IOException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
@@ -227,5 +234,13 @@ public class Protect {
 		cipher.init(Cipher.DECRYPT_MODE, secretKey, new IvParameterSpec(ivBytes));
 
 		return cipher.doFinal(encryptedTextBytes);
+	}
+
+	private static String sign(SecretKey secretKey, String cipherText) throws GeneralSecurityException {
+		Mac mac = Mac.getInstance("HmacSHA1");
+		mac.init(secretKey);
+		byte[] result = mac.doFinal(cipherText.getBytes());
+
+		return Base64.getEncoder().encodeToString(result);
 	}
 }
