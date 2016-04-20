@@ -64,7 +64,7 @@ public class Protect {
 					}
 				}
 			} else if (mode.equals("-d")) {
-				if (isCorrectReadPassword(fileName, password)) {
+				if (isCorrectReadPasswordForTask1(fileName, password)) {
 					decryptExtract(TASK1_DIRECTORY, fileName, password);
 				} else {
 					if (isCorrectReadPasswordForTask2(fileName, password)) {
@@ -87,6 +87,9 @@ public class Protect {
 		credentials.add(new Credential("TA", "Alan", "AlonzoChurch"));
 	}
 
+	/**
+	 * This method adds hard coded permission for each role.
+	 */
 	private static void initialiseRolePermissions() {
 		String[] readFileArrayForManager = { "BS13.enc", "FCR.enc", "SVS.enc", "TA.enc" };
 		List<String> readFiles = Arrays.asList(readFileArrayForManager);
@@ -143,6 +146,13 @@ public class Protect {
 		}
 	}
 
+	/**
+	 * Extract the code to decrypt the file from the main method.
+	 * 
+	 * @param directory
+	 * @param fileName
+	 * @param password
+	 */
 	private static void decryptExtract(String directory, String fileName, String password) {
 		String iv = null;
 		String secretKey = null;
@@ -511,7 +521,7 @@ public class Protect {
 		return false;
 	}
 
-	private static boolean isCorrectReadPassword(String fileName, String password) {
+	private static boolean isCorrectReadPasswordForTask1(String fileName, String password) {
 		// Remove the .enc extension
 		String actualFileName = fileName.substring(0, fileName.length() - 4);
 
