@@ -18,6 +18,7 @@ import java.security.SecureRandom;
 import java.security.Signature;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
@@ -38,10 +39,12 @@ public class Protect {
 	private static final String PUBLIC_KEY_DOCUMENT_PATH = CURRENT_DIRECTORY + "public key.enc";
 
 	private static List<Credential> credentials = new ArrayList<Credential>();
+	private static List<Permission> permissions = new ArrayList<Permission>();
 
 	public static void main(String[] args) {
 		String mode = args[2];
-		initialisePlainTextCredentials();
+		initialiseCredentials();
+		initialiseRolePermissions();
 
 		if (mode.equals("-c")) {
 			check();
@@ -63,7 +66,7 @@ public class Protect {
 							writer.println();
 
 							// Save the AES key and initial vector in the file
-							writer.println(fileName + "\t" + result.getSecretKeyString() + "\t" + result.getIv());
+							writer.println(result.getSecretKeyString() + "\t" + result.getIv());
 							writer.println();
 						}
 
@@ -98,8 +101,8 @@ public class Protect {
 						// Read secret key and iv
 						String line = reader.readLine();
 						String[] columns = line.split("\t");
-						secretKey = columns[1];
-						iv = columns[2];
+						secretKey = columns[0];
+						iv = columns[1];
 						reader.readLine();
 					} catch (IOException e) {
 						// TODO Auto-generated catch block
@@ -138,14 +141,29 @@ public class Protect {
 	}
 
 	/**
-	 * This method reads the plain text credentials from the passwords list text
-	 * file before it is deleted.
+	 * This method adds hard coded credentials.
 	 */
-	private static void initialisePlainTextCredentials() {
+	private static void initialiseCredentials() {
 		credentials.add(new Credential("BS13", "UCL", "Usability"));
 		credentials.add(new Credential("FCR", "Rule1", "Rule2"));
 		credentials.add(new Credential("SVS", "NotASpy", "RealltyNotASpy"));
 		credentials.add(new Credential("TA", "Alan", "AlonzoChurch"));
+	}
+
+	private static void initialiseRolePermissions() {
+		String[] readFileArrayForManager = { "BS13.enc", "FCR.enc", "SVS.enc", "TA.enc" };
+		List<String> readFiles = Arrays.asList(readFileArrayForManager);
+		permissions.add(new Permission("manager", "universal", readFiles, new ArrayList<String>()));
+
+		String[] readFileArrayForRookie = { "BS13.enc", "SVS.enc" };
+		String[] writeFileArrayForRookie = { "SVS" };
+		permissions.add(new Permission("rookie", "kiddo", Arrays.asList(readFileArrayForRookie),
+				Arrays.asList(writeFileArrayForRookie)));
+
+		String[] readFileArrayForAnalyst = { "BS13.enc", "SVS.enc", "TA.enc" };
+		String[] writeFileArrayForAnalyst = { "BS13", "SVS" };
+		permissions.add(new Permission("analyst", "hunter2", Arrays.asList(readFileArrayForAnalyst),
+				Arrays.asList(writeFileArrayForAnalyst)));
 	}
 
 	/**
