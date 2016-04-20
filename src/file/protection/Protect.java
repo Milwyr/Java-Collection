@@ -34,9 +34,10 @@ import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 
 public class Protect {
-	private static final String CURRENT_DIRECTORY = System.getProperty("user.dir") + "\\src\\file\\protection\\Q1\\";
-	private static final String SIGNATURE_DOCUMENT_PATH = CURRENT_DIRECTORY + "digital signature.enc";
-	private static final String PUBLIC_KEY_DOCUMENT_PATH = CURRENT_DIRECTORY + "public key.enc";
+	private static final String TASK1_DIRECTORY = System.getProperty("user.dir") + "\\src\\file\\protection\\Q1\\";
+	private static final String TASK2_DIRECTORY = System.getProperty("user.dir") + "\\src\\file\\protection\\Q2\\";
+	private static final String SIGNATURE_DOCUMENT_NAME = "digital signature.enc";
+	private static final String PUBLIC_KEY_DOCUMENT_NAME = "public key.enc";
 
 	private static List<Credential> credentials = new ArrayList<Credential>();
 	private static List<Permission> permissions = new ArrayList<Permission>();
@@ -47,94 +48,30 @@ public class Protect {
 		initialiseRolePermissions();
 
 		if (mode.equals("-c")) {
-			check();
+			check(TASK1_DIRECTORY);
 		} else {
 			String fileName = args[3];
 			String password = args[4];
 
 			if (mode.equals("-e")) {
-				if (isCorrectWritePassword(fileName, password)) {
-					try {
-						// Encrypt the plain text file
-						String plainText = readPlainTextFile(CURRENT_DIRECTORY + fileName);
-						CipherResult result = encrypt(password, plainText);
-
-						// Encrypt the file with extension ".enc"
-						try (PrintWriter writer = new PrintWriter(CURRENT_DIRECTORY + fileName + ".enc", "UTF-8")) {
-							// Write the cipher text to a file
-							writer.println(result.getCipherText());
-							writer.println();
-
-							// Save the AES key and initial vector in the file
-							writer.println(result.getSecretKeyString() + "\t" + result.getIv());
-							writer.println();
-						}
-
-						// Delete the plain text file
-						File plainTextFile = new File(CURRENT_DIRECTORY + fileName);
-						if (plainTextFile.exists()) {
-							plainTextFile.delete();
-						}
-
-						// Save the digital signature and public key in two
-						// different documents
-						signDocument(fileName + ".enc");
-
-						System.out.println("done");
-					} catch (Exception e) {
-						e.printStackTrace();
-					}
+				if (isCorrectWritePasswordForTask1(fileName, password)) {
+					encryptExtract(TASK1_DIRECTORY, fileName, password);
 				} else {
-					System.out.println("Invalid write password");
+					if (isCorrectWritePasswordForTask2(fileName, password)) {
+						encryptExtract(TASK2_DIRECTORY, fileName, password);
+					} else {
+						System.out.println("Invalid write password or wrong role-based access control.");
+					}
 				}
 			} else if (mode.equals("-d")) {
 				if (isCorrectReadPassword(fileName, password)) {
-					String iv = null;
-					String secretKey = null;
-					String cipherText = null;
-
-					try (BufferedReader reader = new BufferedReader(new FileReader(CURRENT_DIRECTORY + fileName))) {
-						// Read cipher text
-						cipherText = reader.readLine();
-						reader.readLine();
-
-						// Read secret key and iv
-						String line = reader.readLine();
-						String[] columns = line.split("\t");
-						secretKey = columns[0];
-						iv = columns[1];
-						reader.readLine();
-					} catch (IOException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
-					}
-
-					boolean signatureIsValid = verifySignature(fileName);
-					if (!signatureIsValid) {
-						System.out.println("Signature is wrong!");
-					} else {
-						// Remove extension .enc
-						String outputFileName = fileName.substring(0, fileName.length() - 4);
-
-						// Decrypt the cipher text and output it to a text file
-						try (PrintWriter writer = new PrintWriter(CURRENT_DIRECTORY + outputFileName, "UTF-8")) {
-							String recoveredText = decrypt(secretKey, iv, password, cipherText);
-
-							writer.print(recoveredText);
-
-							File encryptedTextFile = new File(CURRENT_DIRECTORY + fileName);
-							if (encryptedTextFile.exists()) {
-								encryptedTextFile.delete();
-							}
-
-							System.out.println("done");
-						} catch (Exception e) {
-							// TODO Auto-generated catch block
-							e.printStackTrace();
-						}
-					}
+					decryptExtract(TASK1_DIRECTORY, fileName, password);
 				} else {
-					System.out.println("Invalid read password");
+					if (isCorrectReadPasswordForTask2(fileName, password)) {
+						decryptExtract(TASK2_DIRECTORY, fileName, password);
+					} else {
+						System.out.println("Invalid write password or wrong role-based access control.");
+					}
 				}
 			}
 		}
@@ -164,6 +101,92 @@ public class Protect {
 		String[] writeFileArrayForAnalyst = { "BS13", "SVS" };
 		permissions.add(new Permission("analyst", "hunter2", Arrays.asList(readFileArrayForAnalyst),
 				Arrays.asList(writeFileArrayForAnalyst)));
+	}
+
+	/**
+	 * Extract the code to encrypt the file from the main method.
+	 * 
+	 * @param directory
+	 * @param fileName
+	 * @param password
+	 */
+	private static void encryptExtract(String directory, String fileName, String password) {
+		try {
+			// Encrypt the plain text file
+			String plainText = readPlainTextFile(directory + fileName);
+			CipherResult result = encrypt(password, plainText);
+
+			// Encrypt the file with extension ".enc"
+			try (PrintWriter writer = new PrintWriter(directory + fileName + ".enc", "UTF-8")) {
+				// Write the cipher text to a file
+				writer.println(result.getCipherText());
+				writer.println();
+
+				// Save the AES key and initial vector in the file
+				writer.println(result.getSecretKeyString() + "\t" + result.getIv());
+				writer.println();
+			}
+
+			// Delete the plain text file
+			File plainTextFile = new File(directory + fileName);
+			if (plainTextFile.exists()) {
+				plainTextFile.delete();
+			}
+
+			// Save the digital signature and public key in two
+			// different documents
+			signDocument(directory, fileName + ".enc");
+
+			System.out.println("done");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+
+	private static void decryptExtract(String directory, String fileName, String password) {
+		String iv = null;
+		String secretKey = null;
+		String cipherText = null;
+
+		try (BufferedReader reader = new BufferedReader(new FileReader(directory + fileName))) {
+			// Read cipher text
+			cipherText = reader.readLine();
+			reader.readLine();
+
+			// Read secret key and iv
+			String line = reader.readLine();
+			String[] columns = line.split("\t");
+			secretKey = columns[0];
+			iv = columns[1];
+			reader.readLine();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+
+		boolean signatureIsValid = verifySignature(directory, fileName);
+		if (!signatureIsValid) {
+			System.out.println("Signature is wrong!");
+		} else {
+			// Remove extension .enc
+			String outputFileName = fileName.substring(0, fileName.length() - 4);
+
+			// Decrypt the cipher text and output it to a text file
+			try (PrintWriter writer = new PrintWriter(directory + outputFileName, "UTF-8")) {
+				String recoveredText = decrypt(secretKey, iv, password, cipherText);
+
+				writer.print(recoveredText);
+
+				File encryptedTextFile = new File(directory + fileName);
+				if (encryptedTextFile.exists()) {
+					encryptedTextFile.delete();
+				}
+
+				System.out.println("done");
+			} catch (Exception e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
 	}
 
 	/**
@@ -279,13 +302,13 @@ public class Protect {
 		return cipher.doFinal(encryptedTextBytes);
 	}
 
-	private static void check() {
+	private static void check(String directoryName) {
 		List<String> originalFileNames = credentials.stream().map(x -> x.getFileName()).collect(Collectors.toList());
 
 		List<String> fileNames = new ArrayList<String>();
 
 		// Remove the file separator '\\' at last
-		File directory = new File(CURRENT_DIRECTORY.substring(0, CURRENT_DIRECTORY.length() - 1));
+		File directory = new File(directoryName.substring(0, directoryName.length() - 1));
 		File[] files = directory.listFiles();
 
 		for (File file : files) {
@@ -303,8 +326,8 @@ public class Protect {
 				// Delete the file if it is not encrypted or in the original
 				// folder, and it is not signature or public key file
 				if (!file.getName().endsWith(".enc") || !originalFileNames.contains(actualFileName)) {
-					if (!file.getPath().equals(SIGNATURE_DOCUMENT_PATH)
-							&& !file.getPath().equals(PUBLIC_KEY_DOCUMENT_PATH)) {
+					if (!file.getPath().equals(directoryName + SIGNATURE_DOCUMENT_NAME)
+							&& !file.getPath().equals(directoryName + PUBLIC_KEY_DOCUMENT_NAME)) {
 						isDeleted = file.delete();
 					}
 				}
@@ -334,7 +357,8 @@ public class Protect {
 	 * @throws GeneralSecurityException
 	 * @throws IOException
 	 */
-	private static void signDocument(String documentName) throws GeneralSecurityException, IOException {
+	private static void signDocument(String directoryName, String documentName)
+			throws GeneralSecurityException, IOException {
 		// Create a key pair generator
 		KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("DSA", "SUN");
 		SecureRandom secureRandom = SecureRandom.getInstance("SHA1PRNG", "SUN");
@@ -351,7 +375,7 @@ public class Protect {
 
 		// Supply the signature object the data to be signed
 		try (BufferedInputStream bufferedInputStream = new BufferedInputStream(
-				new FileInputStream(CURRENT_DIRECTORY + documentName))) {
+				new FileInputStream(directoryName + documentName))) {
 			byte[] buffer = new byte[1024];
 			int length;
 			while ((length = bufferedInputStream.read(buffer)) >= 0) {
@@ -360,8 +384,8 @@ public class Protect {
 		}
 
 		// Save the digital signature in a file
-		Map<String, String> signatureMap = readKeyPairValue(SIGNATURE_DOCUMENT_PATH);
-		try (PrintWriter writer = new PrintWriter(SIGNATURE_DOCUMENT_PATH, "UTF-8")) {
+		Map<String, String> signatureMap = readKeyPairValue(directoryName + SIGNATURE_DOCUMENT_NAME);
+		try (PrintWriter writer = new PrintWriter(directoryName + SIGNATURE_DOCUMENT_NAME, "UTF-8")) {
 			for (Entry<String, String> entry : signatureMap.entrySet()) {
 				if (documentName.equals(entry.getKey())) {
 					// Save the newly generated signature
@@ -379,8 +403,8 @@ public class Protect {
 		}
 
 		// Save the public key in another file
-		Map<String, String> publicKeyMap = readKeyPairValue(PUBLIC_KEY_DOCUMENT_PATH);
-		try (PrintWriter writer = new PrintWriter(PUBLIC_KEY_DOCUMENT_PATH, "UTF-8")) {
+		Map<String, String> publicKeyMap = readKeyPairValue(directoryName + PUBLIC_KEY_DOCUMENT_NAME);
+		try (PrintWriter writer = new PrintWriter(directoryName + PUBLIC_KEY_DOCUMENT_NAME, "UTF-8")) {
 			for (Entry<String, String> entry : publicKeyMap.entrySet()) {
 				if (documentName.equals(entry.getKey())) {
 					// Save the newly generated public key
@@ -405,9 +429,9 @@ public class Protect {
 	 *            Name of the document to verify (ends with .enc)
 	 * @return True if the signature is valid
 	 */
-	private static boolean verifySignature(String documentName) {
+	private static boolean verifySignature(String directoryName, String documentName) {
 		// Read signature
-		String publicKeyString = readKeyPairValue(PUBLIC_KEY_DOCUMENT_PATH).get(documentName);
+		String publicKeyString = readKeyPairValue(directoryName + PUBLIC_KEY_DOCUMENT_NAME).get(documentName);
 		byte[] publicKeyBytes = Base64.getDecoder().decode(publicKeyString);
 		X509EncodedKeySpec publicKeySpec = new X509EncodedKeySpec(publicKeyBytes);
 
@@ -418,7 +442,8 @@ public class Protect {
 
 			// Read the signature from the file created when encrypting the
 			// plain text
-			String signatureToVerifyString = readKeyPairValue(SIGNATURE_DOCUMENT_PATH).get(documentName);
+			String signatureToVerifyString = readKeyPairValue(directoryName + SIGNATURE_DOCUMENT_NAME)
+					.get(documentName);
 			byte[] signatureToVerify = Base64.getDecoder().decode(signatureToVerifyString);
 
 			// Generate a signature with the public key
@@ -427,7 +452,7 @@ public class Protect {
 
 			// Supply the signature object the data to be signed
 			try (BufferedInputStream bufferedInputStream = new BufferedInputStream(
-					new FileInputStream(CURRENT_DIRECTORY + documentName))) {
+					new FileInputStream(directoryName + documentName))) {
 				byte[] buffer = new byte[1024];
 				int length;
 				while ((length = bufferedInputStream.read(buffer)) >= 0) {
@@ -464,12 +489,23 @@ public class Protect {
 		}
 	}
 
-	private static boolean isCorrectWritePassword(String fileName, String password) {
+	private static boolean isCorrectWritePasswordForTask1(String fileName, String password) {
 		Optional<Credential> credential = credentials.stream().filter(x -> x.getFileName().equals(fileName))
 				.findFirst();
 
 		if (credential.isPresent()) {
 			return credential.get().getWritePassword().equals(password);
+		}
+
+		return false;
+	}
+
+	private static boolean isCorrectWritePasswordForTask2(String fileName, String password) {
+		Optional<Permission> permission = permissions.stream().filter(x -> x.getPassword().equals(password))
+				.findFirst();
+
+		if (permission.isPresent()) {
+			return permission.get().getWriteFiles().contains(fileName);
 		}
 
 		return false;
@@ -488,4 +524,16 @@ public class Protect {
 
 		return false;
 	}
+
+	private static boolean isCorrectReadPasswordForTask2(String fileName, String password) {
+		Optional<Permission> permission = permissions.stream().filter(x -> x.getPassword().equals(password))
+				.findFirst();
+
+		if (permission.isPresent()) {
+			return permission.get().getReadFiles().contains(fileName);
+		}
+
+		return false;
+	}
+
 }
