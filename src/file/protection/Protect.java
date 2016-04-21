@@ -36,6 +36,7 @@ import javax.crypto.spec.SecretKeySpec;
 public class Protect {
 	private static final String TASK1_DIRECTORY = System.getProperty("user.dir") + "\\src\\file\\protection\\Q1\\";
 	private static final String TASK2_DIRECTORY = System.getProperty("user.dir") + "\\src\\file\\protection\\Q2\\";
+	private static final String TASK3_DIRECTORY = System.getProperty("user.dir") + "\\src\\file\\protection\\Q3\\";
 	private static final String SIGNATURE_DOCUMENT_NAME = "digital signature.enc";
 	private static final String PUBLIC_KEY_DOCUMENT_NAME = "public key.enc";
 
@@ -49,6 +50,28 @@ public class Protect {
 
 		if (mode.equals("-c")) {
 			check(TASK1_DIRECTORY);
+		} else if (mode.equals("-b")) {
+			if (args[4].equals("emergency")) {
+				String fileName = args[3];
+
+				File emergencyFile = new File(TASK3_DIRECTORY + fileName);
+				if (emergencyFile.exists()) {
+					// Decrypt using the credentials of the manager as he can
+					// decrypt all the files
+					decryptExtract(TASK3_DIRECTORY, fileName, "universal");
+				}
+
+				// Delete all files except the one to recover
+				File folder = new File(TASK3_DIRECTORY);
+				for (File file : folder.listFiles()) {
+					// Remove .enc extension
+					String plainTextFileName = fileName.substring(0, fileName.length() - 4);
+
+					if (!file.getName().equals(plainTextFileName)) {
+						file.delete();
+					}
+				}
+			}
 		} else {
 			String fileName = args[3];
 			String password = args[4];
@@ -450,7 +473,7 @@ public class Protect {
 		Map<String, String> signatureMap = readKeyPairValue(directoryName + SIGNATURE_DOCUMENT_NAME);
 		try (PrintWriter writer = new PrintWriter(directoryName + SIGNATURE_DOCUMENT_NAME, "UTF-8")) {
 			writer.println("File\t\tSignature");
-			
+
 			for (Entry<String, String> entry : signatureMap.entrySet()) {
 				if (documentName.equals(entry.getKey())) {
 					// Save the newly generated signature
@@ -471,7 +494,7 @@ public class Protect {
 		Map<String, String> publicKeyMap = readKeyPairValue(directoryName + PUBLIC_KEY_DOCUMENT_NAME);
 		try (PrintWriter writer = new PrintWriter(directoryName + PUBLIC_KEY_DOCUMENT_NAME, "UTF-8")) {
 			writer.println("File\t\tPublic key");
-			
+
 			for (Entry<String, String> entry : publicKeyMap.entrySet()) {
 				if (documentName.equals(entry.getKey())) {
 					// Save the newly generated public key
@@ -603,5 +626,4 @@ public class Protect {
 
 		return false;
 	}
-
 }
