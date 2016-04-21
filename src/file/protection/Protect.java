@@ -122,12 +122,13 @@ public class Protect {
 			// Encrypt the file with extension ".enc"
 			try (PrintWriter writer = new PrintWriter(directory + fileName + ".enc", "UTF-8")) {
 				// Write the cipher text to a file
-				writer.println(result.getCipherText());
+				writer.println(result.getCipherTextString());
 				writer.println();
 
-				// Save the AES key and initial vector in the file
-				writer.println(result.getSecretKeyString() + "\t" + result.getIv());
-				writer.println();
+				// Save the encrypted AES key and initial vector in the file
+				String encryptedSecretKey = encryptSecretKey(result.getSecretKey(), result.getIv());
+				writer.println("Encrypted secret key\t\t\t\tInitial vector");
+				writer.print(encryptedSecretKey + "\t" + result.getIvString());
 			}
 
 			// Delete the plain text file
@@ -164,12 +165,15 @@ public class Protect {
 			reader.readLine();
 
 			// Read secret key and iv
+			reader.readLine();
 			String line = reader.readLine();
 			String[] columns = line.split("\t");
-			secretKey = columns[0];
 			iv = columns[1];
-			reader.readLine();
+
+			secretKey = decryptSecretKey(columns[0], iv);
 		} catch (IOException e) {
+			e.printStackTrace();
+		} catch (GeneralSecurityException e) {
 			e.printStackTrace();
 		}
 
@@ -262,6 +266,55 @@ public class Protect {
 		byte[] cipherTextBytes = cipher.doFinal(plainTextBytes);
 
 		return new CipherResult(secretKey, iv, cipherTextBytes);
+	}
+
+	/**
+	 * This method encrypts the given secret key that uses the given initial
+	 * vector as the AES key.
+	 * 
+	 * @param plainTextSecretKey
+	 *            A SecretKey object that is an unencrypted secret key
+	 * @param iv
+	 *            Initial vector
+	 * @return A string of encrypted secret key
+	 * @throws GeneralSecurityException
+	 */
+	private static String encryptSecretKey(SecretKey plainTextSecretKey, byte[] iv) throws GeneralSecurityException {
+		// Create the AES key to encrypt the secret key which is in plain text
+		byte[] aesKeyBytes = Arrays.copyOf(iv, 16);
+		SecretKey aesKey = new SecretKeySpec(aesKeyBytes, 0, aesKeyBytes.length, "AES");
+
+		// Encrypt the secret key
+		Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
+		cipher.init(Cipher.ENCRYPT_MODE, aesKey, new IvParameterSpec(iv));
+		byte[] encryptedSecretKeyBytes = cipher.doFinal(plainTextSecretKey.getEncoded());
+
+		return Base64.getEncoder().encodeToString(encryptedSecretKeyBytes);
+	}
+
+	/**
+	 * This method decrypts the encrypted secret key that uses the given initial
+	 * vector as the AES key.
+	 * 
+	 * @param encryptedSecretKeyString
+	 *            A string of encrypted secret key
+	 * @param ivString
+	 *            A string of initial vector
+	 * @return The recovered secret key
+	 * @throws GeneralSecurityException
+	 */
+	private static String decryptSecretKey(String encryptedSecretKeyString, String ivString)
+			throws GeneralSecurityException {
+		// Create the AES key to encrypt the secret key which is in plain text
+		byte[] aesKeyBytes = Arrays.copyOf(Base64.getDecoder().decode(ivString), 16);
+		SecretKey aesKey = new SecretKeySpec(aesKeyBytes, 0, aesKeyBytes.length, "AES");
+
+		// Encrypt the secret key
+		Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
+		cipher.init(Cipher.DECRYPT_MODE, aesKey, new IvParameterSpec(Base64.getDecoder().decode(ivString)));
+		byte[] encryptedSecretKeyBytes = cipher.doFinal(Base64.getDecoder().decode(encryptedSecretKeyString));
+
+		return Base64.getEncoder().encodeToString(encryptedSecretKeyBytes);
 	}
 
 	/**
@@ -396,6 +449,8 @@ public class Protect {
 		// Save the digital signature in a file
 		Map<String, String> signatureMap = readKeyPairValue(directoryName + SIGNATURE_DOCUMENT_NAME);
 		try (PrintWriter writer = new PrintWriter(directoryName + SIGNATURE_DOCUMENT_NAME, "UTF-8")) {
+			writer.println("File\t\tSignature");
+			
 			for (Entry<String, String> entry : signatureMap.entrySet()) {
 				if (documentName.equals(entry.getKey())) {
 					// Save the newly generated signature
@@ -415,6 +470,8 @@ public class Protect {
 		// Save the public key in another file
 		Map<String, String> publicKeyMap = readKeyPairValue(directoryName + PUBLIC_KEY_DOCUMENT_NAME);
 		try (PrintWriter writer = new PrintWriter(directoryName + PUBLIC_KEY_DOCUMENT_NAME, "UTF-8")) {
+			writer.println("File\t\tPublic key");
+			
 			for (Entry<String, String> entry : publicKeyMap.entrySet()) {
 				if (documentName.equals(entry.getKey())) {
 					// Save the newly generated public key
@@ -487,6 +544,7 @@ public class Protect {
 	private static Map<String, String> readKeyPairValue(String filePath) {
 		Map<String, String> signatures = new TreeMap<String, String>();
 		try (BufferedReader reader = new BufferedReader(new FileReader(filePath))) {
+			reader.readLine();
 			String line;
 			while ((line = reader.readLine()) != null) {
 				// [0] is the file name, [1] is the signature
