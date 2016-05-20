@@ -23,11 +23,19 @@ public class CipherResult {
 		return Base64.getEncoder().encodeToString(this.secretKey.getEncoded());
 	}
 
-	public String getIv() {
+	public byte[] getIv() {
+		return this.iv;
+	}
+	
+	public String getIvString() {
 		return Base64.getEncoder().encodeToString(this.iv);
 	}
 	
-	public String getCipherText() {
+	public byte[] getCipherText() {
+		return this.cipherText;
+	}
+	
+	public String getCipherTextString() {
 		return Base64.getEncoder().encodeToString(this.cipherText);
 	}
 }
