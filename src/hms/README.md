@@ -1,0 +1,1 @@
+﻿The aim of this project is to test the Hotel Management System (HMS) by the JUnit framework. The source code for HMS is given, and I wrote the test cases under the package hms.test.
